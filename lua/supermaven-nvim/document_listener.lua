@@ -4,6 +4,7 @@ local config = require("supermaven-nvim.config")
 
 local M = {
   augroup = nil,
+  last_normal_cursor = nil,
 }
 
 M.setup = function()
@@ -49,6 +50,25 @@ M.setup = function()
       if not file_name or not buffer then
         return
       end
+      
+      -- In normal mode, track cursor movement to cancel suggestions
+      local mode = vim.api.nvim_get_mode().mode
+      if mode == "n" then
+        local cursor = vim.api.nvim_win_get_cursor(0)
+        local cursor_key = cursor[1] .. "," .. cursor[2]
+        
+        if M.last_normal_cursor ~= nil and M.last_normal_cursor ~= cursor_key and preview.has_suggestion() then
+          -- Cursor moved from previous position, cancel suggestion
+          preview:dispose_inlay()
+        end
+        
+        -- Update last cursor position for next movement
+        M.last_normal_cursor = cursor_key
+      else
+        -- Reset normal mode cursor tracking when not in normal mode
+        M.last_normal_cursor = nil
+      end
+      
       binary:on_update(buffer, file_name, "cursor")
     end,
   })
@@ -57,6 +77,14 @@ M.setup = function()
     group = M.augroup,
     callback = function(event)
       preview:dispose_inlay()
+    end,
+  })
+
+  vim.api.nvim_create_autocmd({ "InsertEnter" }, {
+    group = M.augroup,
+    callback = function(event)
+      -- Reset normal mode cursor tracking when entering insert mode
+      M.last_normal_cursor = nil
     end,
   })
 

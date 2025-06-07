@@ -23,7 +23,8 @@ function CompletionPreview:render_with_inlay(
   end
 
   local mode = vim.api.nvim_get_mode().mode
-  if mode ~= "i" and mode ~= "ic" then
+  -- Allow suggestions in both insert and normal modes
+  if mode ~= "i" and mode ~= "ic" and mode ~= "n" then
     return
   end
 
@@ -144,6 +145,8 @@ function CompletionPreview.on_accept_suggestion(is_partial)
     local completion_text = accept_completion.completion_text
     local prior_delete = accept_completion.prior_delete
     local cursor = vim.api.nvim_win_get_cursor(0)
+    local mode = vim.api.nvim_get_mode().mode
+    
     local range = {
       start = {
         line = cursor[1] - 1,
@@ -155,7 +158,17 @@ function CompletionPreview.on_accept_suggestion(is_partial)
       },
     }
 
-    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Space><Left><Del>", true, false, true), "n", false)
+    -- Handle different modes appropriately
+    if mode == "n" then
+      -- In normal mode, we need to position cursor correctly
+      -- Move to the end of the current line before applying the edit
+      local current_line = vim.api.nvim_get_current_line()
+      vim.api.nvim_win_set_cursor(0, {cursor[1], #current_line})
+    else
+      -- In insert mode, use the space-left-del trick
+      vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Space><Left><Del>", true, false, true), "n", false)
+    end
+    
     vim.lsp.util.apply_text_edits(
       { { range = range, newText = completion_text } },
       vim.api.nvim_get_current_buf(),
@@ -166,8 +179,19 @@ function CompletionPreview.on_accept_suggestion(is_partial)
     local last_line = u.get_last_line(completion_text)
     local new_cursor_pos = { cursor[1] + lines, cursor[2] + #last_line + 1 }
     vim.api.nvim_win_set_cursor(0, new_cursor_pos)
+    
+    -- If we were in normal mode, stay in normal mode
+    if mode == "n" then
+      vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "n", false)
+    end
   else
-    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Tab>", true, false, true), "n", true)
+    local mode = vim.api.nvim_get_mode().mode
+    if mode == "n" then
+      -- In normal mode, don't send tab if no suggestion
+      return
+    else
+      vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Tab>", true, false, true), "n", true)
+    end
   end
 end
 

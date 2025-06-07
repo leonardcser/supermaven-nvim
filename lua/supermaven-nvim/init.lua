@@ -14,8 +14,15 @@ M.setup = function(args)
   elseif not config.disable_keymaps then
     if config.keymaps.accept_suggestion ~= nil then
       local accept_suggestion_key = config.keymaps.accept_suggestion
+      -- Set keymaps for both insert and normal modes
       vim.keymap.set(
         "i",
+        accept_suggestion_key,
+        completion_preview.on_accept_suggestion,
+        { noremap = true, silent = true }
+      )
+      vim.keymap.set(
+        "n",
         accept_suggestion_key,
         completion_preview.on_accept_suggestion,
         { noremap = true, silent = true }
@@ -30,12 +37,29 @@ M.setup = function(args)
         completion_preview.on_accept_suggestion_word,
         { noremap = true, silent = true }
       )
+      vim.keymap.set(
+        "n",
+        accept_word_key,
+        completion_preview.on_accept_suggestion_word,
+        { noremap = true, silent = true }
+      )
     end
 
     if config.keymaps.clear_suggestion ~= nil then
       local clear_suggestion_key = config.keymaps.clear_suggestion
       vim.keymap.set("i", clear_suggestion_key, completion_preview.on_dispose_inlay, { noremap = true, silent = true })
+      vim.keymap.set("n", clear_suggestion_key, completion_preview.on_dispose_inlay, { noremap = true, silent = true })
     end
+    
+    -- Add Escape key to clear suggestions in normal mode
+    vim.keymap.set("n", "<Esc>", function()
+      if completion_preview.has_suggestion() then
+        completion_preview.on_dispose_inlay()
+      else
+        -- If no suggestion, execute normal Escape behavior
+        vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "n", false)
+      end
+    end, { noremap = true, silent = true })
   end
 
   commands.setup()

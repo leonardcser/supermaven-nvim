@@ -93,7 +93,14 @@ function BinaryLifecycle:on_update(buffer, file_name, event_type)
 
   self:document_changed(file_path, buffer_text)
   local cursor = api.nvim_win_get_cursor(0)
+  local mode = vim.api.nvim_get_mode().mode
   local completion_is_allowed = (buffer_text ~= self.last_text) and (self.last_path == file_name)
+  
+  -- In normal mode, also allow completions on cursor movement
+  if mode == "n" and event_type == "cursor" then
+    completion_is_allowed = true
+  end
+  
   local context = {
     document_text = buffer_text,
     cursor = cursor,
